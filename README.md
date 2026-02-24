@@ -31,70 +31,31 @@ LangChain Expression Language (LCEL) simplifies interactions with large language
 # INSTALLS:
 # pip install -U langchain-core langchain-groq pydantic python-dotenv
 
-from pydantic import BaseModel, Field
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import PydanticOutputParser
-from langchain_groq import ChatGroq
 import os
+import openai
 
-os.environ["GROQ_API_KEY"] = "groq_api"
+from dotenv import load_dotenv, find_dotenv
+_ = load_dotenv(find_dotenv()) # read local .env file
+openai.api_key = os.environ['OPENAI_API_KEY']
 
-# 1. STRUCTURED MODEL
-class SummaryResponse(BaseModel):
-    summary: str
-    word_count: int
-    highlights: list[str]
+from langchain.prompts import ChatPromptTemplate
+from langchain.chat_models import ChatOpenAI
+from langchain.schema.output_parser import StrOutputParser
 
-parser = PydanticOutputParser(pydantic_object=SummaryResponse)
-
-# ESCAPE THE FORMAT INSTRUCTIONS
-format_rules = parser.get_format_instructions().replace("{", "{{").replace("}", "}}")
-
-# 2. PROMPT
-prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", "You are a concise factual summarizer."),
-        ("human",
-         "Write a {length}-word {tone} summary about: {topic}.\n"
-         "Provide exactly 3 short highlights.\n\n"
-         "Output MUST be valid JSON using this schema:\n"
-         f"{format_rules}\n\n"
-         "Audience: {audience}"
-        ),
-    ]
+prompt = ChatPromptTemplate.from_template(
+    "List the advantages and disadvantages of {topic}."
 )
+model = ChatOpenAI()
+output_parser = StrOutputParser()
 
+chain = prompt | model | output_parser
 
-# 3. MODEL (GROQ)
-llm = ChatGroq(
-    model="openai/gpt-oss-20b",
-    temperature=0
-)
-
-# 4. LCEL CHAIN
-chain = prompt | llm | parser
-
-# 5. TEST EXAMPLES
-examples = [
-    {"topic": "Climate change causes", "length": "50", "tone": "neutral", "audience": "general readers"},
-    {"topic": "Transformer neural networks", "length": "40", "tone": "technical", "audience": "ML engineers"},
-]
-
-for ex in examples:
-    print("\n=== INPUT ===")
-    print(ex)
-
-    result = chain.invoke(ex)
-    print("\n=== PARSED JSON OUTPUT ===")
-    print(result.model_dump())
-
-    real_wc = len(result.summary.split())
-    print("Reported:", result.word_count)
-    print("Actual:", real_wc)
+chain.invoke({"topic": "AI"})
 ```
 ### OUTPUT:
 
-![alt Image](https://github.com/user-attachments/assets/7811609e-857a-4330-9628-1fde46d6fe7d)
+<img width="1353" height="321" alt="image" src="https://github.com/user-attachments/assets/9c969e0c-aa8b-4c72-ba97-05984ae19e6b" />
+
 
 ### RESULT:
 
